@@ -4,7 +4,9 @@
 # reward is downstream coding-task outcomes. Latent needs: 6 'sdlc-like',
 # 6 'novel'. Scripted version tests reinforcement dynamics (convergence,
 # coverage, what selection favors), not semantics.
-import json, random, hashlib
+import json, random, hashlib, os
+
+os.makedirs("run", exist_ok=True)
 
 NEEDS = ["versioning","verification","gating","reusable_tools","conventions","documentation",
          "pattern_cache","error_atlas","snippet_farm","prompt_scaffolds","example_bank","risk_flags"]
