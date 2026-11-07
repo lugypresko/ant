@@ -128,37 +128,77 @@ def run_coding_arm(arm, tasks, seed, budget):
 # ---------- Family B: requirement decomposition ----------
 SYS_DECOMP = ("You break one requirement or sub-requirement into 2 to 4 smaller concrete parts. "
  "Reply ONLY with a JSON array of short strings, each a self-contained part. No prose.")
+CELL_ROLES = (
+    "Focus on data, persistence, and state transitions.",
+    "Focus on APIs, user workflows, and integrations.",
+    "Focus on validation, permissions, and failure handling.",
+    "Focus on operations, observability, and recovery.",
+)
 LEAF_MAX_WORDS = 12
 
 def is_leaf(text):
     return len(text.split()) <= LEAF_MAX_WORDS
 
-def decompose_call(chunk):
-    txt = B.llm(f"Break into smaller parts: {chunk}", SYS_DECOMP, max_tokens=600)
-    parts = B.parse_json(txt)
+def decompose_call(chunk, role=None):
+    prompt = f"Break into smaller parts: {chunk}"
+    if role:
+        prompt += f"\nPerspective: {role}"
+    try:
+        txt = B.llm(prompt, SYS_DECOMP, max_tokens=600)
+    except Exception as e:
+        if isinstance(e, B.DailyCapReached):
+            raise
+        raise RuntimeError("api_error") from e
+    try:
+        parts = B.parse_json(txt)
+    except Exception as e:
+        raise ValueError("malformed_json") from e
     if isinstance(parts, list) and parts and all(isinstance(p, str) for p in parts):
         return parts[:4]
-    raise ValueError("bad decomposition")
+    raise TypeError("invalid_structure")
+
+def _record_decomp_failure(failures, exc):
+    kind = str(exc) if str(exc) in {"api_error", "malformed_json", "invalid_structure"} else "other_error"
+    failures[kind] = failures.get(kind, 0) + 1
+
+def _decomp_score(req, alltext):
+    generated = " ".join(alltext)
+    return score_decomposition(req, generated) if isinstance(req.get("leaves"), dict) else score_hard(req, generated)
 
 def run_decomp_arm(arm, req, seed, budget=13):
     rng = random.Random(seed)
     calls = 0
+    failures = {}
+    requests_before = B.STATE["calls_today"]
     tree = {}
     queue = [(req["req"], 0)]
     alltext = [req["req"]]
     if arm == "blueprint":
         # fixed skeleton: requirement -> chunks, then each chunk -> leaves; no adaptivity
         if calls < budget:
-            chunks = decompose_call(req["req"]); calls += 1
+            try:
+                chunks = decompose_call(req["req"]); calls += 1
+            except B.DailyCapReached:
+                raise
+            except Exception as e:
+                calls += 1; _record_decomp_failure(failures, e)
+                return {"coverage": 0.0, "passed": False, "calls": calls,
+                        "api_requests": B.STATE["calls_today"] - requests_before,
+                        "nodes": len(alltext), "failures": failures}
             tree[req["req"]] = chunks; alltext += chunks
             for c in chunks[:3]:
                 if calls >= budget: break
                 try:
                     subs = decompose_call(c); calls += 1
                     tree[c] = subs; alltext += subs
-                except Exception: pass
-        cov = score_hard(req, " ".join(alltext))
-        return {"coverage": round(cov, 3), "calls": calls, "nodes": len(alltext)}
+                except B.DailyCapReached:
+                    raise
+                except Exception as e:
+                    calls += 1; _record_decomp_failure(failures, e)
+        cov = _decomp_score(req, alltext)
+        return {"coverage": round(cov, 3), "passed": cov >= 1.0, "calls": calls,
+                "api_requests": B.STATE["calls_today"] - requests_before,
+                "nodes": len(alltext), "failures": failures}
     workers = 1 if arm == "central" else (4 if arm in ("pool", "cells") else None)
     if arm == "colony":
         nwork = 1; spawn_events = []
@@ -177,33 +217,66 @@ def run_decomp_arm(arm, req, seed, budget=13):
                 chunk, depth = queue.pop(0)
                 try:
                     parts = decompose_call(chunk); calls += 1
-                except Exception:
+                except B.DailyCapReached:
+                    raise
+                except Exception as e:
                     calls += 1; ph[chunk] = ph.get(chunk, 1.0) + 1.0
+                    _record_decomp_failure(failures, e)
                     queue.append((chunk, depth)); continue
                 tree[chunk] = parts; alltext += parts
                 for p in parts:
                     # depth 0 and 1 always expand; deeper only if still abstract (long)
                     if depth < 2 or not is_leaf(p):
                         queue.append((p, depth + 1)); ph[p] = ph.get(p, 1.0) * EVAP + 0.5
-        cov = score_hard(req, " ".join(alltext))
-        return {"coverage": round(cov, 3), "calls": calls, "nodes": len(alltext),
+        cov = _decomp_score(req, alltext)
+        return {"coverage": round(cov, 3), "passed": cov >= 1.0, "calls": calls,
+                "api_requests": B.STATE["calls_today"] - requests_before,
+                "nodes": len(alltext), "failures": failures,
                 "workers_final": nwork, "spawn_events": spawn_events}
     # central / pool / cells: round-robin decomposers, BFS
     wi = 0
     while queue and calls < budget:
         chunk, depth = queue.pop(0)
         try:
-            parts = decompose_call(chunk); calls += 1
-        except Exception:
+            role = CELL_ROLES[wi % len(CELL_ROLES)] if arm == "cells" else None
+            parts = decompose_call(chunk, role=role); calls += 1
+        except B.DailyCapReached:
+            raise
+        except Exception as e:
             calls += 1
+            _record_decomp_failure(failures, e)
             if calls < budget: queue.append((chunk, depth))
             continue
         tree[chunk] = parts; alltext += parts
         for p in parts:
             if depth < 2 or not is_leaf(p): queue.append((p, depth + 1))
         wi = (wi + 1) % workers
-    cov = score_hard(req, " ".join(alltext))
-    return {"coverage": round(cov, 3), "calls": calls, "nodes": len(alltext)}
+    cov = _decomp_score(req, alltext)
+    return {"coverage": round(cov, 3), "passed": cov >= 1.0, "calls": calls,
+            "api_requests": B.STATE["calls_today"] - requests_before,
+            "nodes": len(alltext), "failures": failures}
+
+def summarize_decomp_results(done):
+    summary = {}
+    for arm in ("colony", "central", "pool", "cells", "blueprint"):
+        rows = [v for k, v in done.items() if k.startswith(arm + ":")]
+        failure_types = {}
+        for row in rows:
+            for kind, count in row.get("failures", {}).items():
+                failure_types[kind] = failure_types.get(kind, 0) + count
+            if not row.get("passed"):
+                failure_types["coverage_incomplete"] = failure_types.get("coverage_incomplete", 0) + 1
+        summary[arm] = {
+            "runs_measured": len(rows),
+            "strict_passes_measured": sum(bool(r.get("passed")) for r in rows),
+            "strict_pass_rate_measured": round(sum(bool(r.get("passed")) for r in rows) / len(rows), 3) if rows else None,
+            "mean_leaf_coverage_measured": round(sum(r.get("coverage", 0) for r in rows) / len(rows), 3) if rows else None,
+            "api_requests_measured": sum(r.get("api_requests", 0) for r in rows),
+            "mean_api_requests_per_requirement_measured": round(sum(r.get("api_requests", 0) for r in rows) / len(rows), 2) if rows else None,
+            "worker_invocations_measured": sum(r.get("calls", 0) for r in rows),
+            "failure_types_measured": failure_types,
+        }
+    return summary
 
 def main():
     part = sys.argv[1]
@@ -222,15 +295,24 @@ def main():
                 save(); print(key, state["done"][key]["solved"], state["done"][key]["calls"], flush=True)
         json.dump(state["done"], open("run4/results_coding.json", "w"), indent=1)
     elif part == "decomp":
-        reqs = HARD_REQUIREMENTS
-        for arm in ("colony", "central", "pool", "blueprint"):
+        reqs = REQUIREMENTS + HARD_REQUIREMENTS
+        for arm in ("colony", "central", "pool", "cells", "blueprint"):
             for seed in range(2):
                 for req in reqs:
                     key = f"{arm}:{seed}:{req['id']}"
                     if key in state["done"]: continue
-                    state["done"][key] = run_decomp_arm(arm, req, 200 + seed)
+                    try:
+                        result = run_decomp_arm(arm, req, 200 + seed)
+                    except B.DailyCapReached:
+                        save()
+                        print("Daily free-tier request cap reached; resume this command after the quota reset.", flush=True)
+                        json.dump(state["done"], open("run4/results_decomp.json", "w"), indent=1)
+                        json.dump(summarize_decomp_results(state["done"]), open("run4/summary_decomp.json", "w"), indent=1)
+                        return
+                    state["done"][key] = result
                     save(); print(key, state["done"][key], flush=True)
         json.dump(state["done"], open("run4/results_decomp.json", "w"), indent=1)
+        json.dump(summarize_decomp_results(state["done"]), open("run4/summary_decomp.json", "w"), indent=1)
 
 if __name__ == "__main__":
     main()
