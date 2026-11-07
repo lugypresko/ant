@@ -1,75 +1,111 @@
 #!/usr/bin/env python3
-# Experiment 3 (real LLM): nest-building colony on Gemini free tier.
-# Arms: ants30, 4cell, central. 100 build ticks (1 batched call/tick), then
-# 20 downstream coding tasks evaluated by running generated code vs unit tests.
-# Scale arm: sizes 10/30/100/300, scripted decisions + LLM spot-checks.
+# Shared one-call worker clients for the ant experiments.
 import json, os, random, re, subprocess, sys, tempfile, time, urllib.request, urllib.error
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-KEY = os.environ.get("GEMINI_API_KEY", "")
-if not KEY:
-    raise SystemExit("Set GEMINI_API_KEY in the environment before running.")
-MODEL = os.environ.get("MODEL", "gemini-3.5-flash-lite")
-URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
+PROVIDER_DEFAULTS = {"gemini": "gemini-3.5-flash-lite", "groq": "openai/gpt-oss-20b", "ollama": "gpt-oss:20b"}
+PROVIDER_DAILY_CAPS = {"gemini": 490, "groq": 900, "ollama": None}
+PROVIDER, MODEL = "gemini", PROVIDER_DEFAULTS["gemini"]
+OLLAMA_BASE_URL = "http://localhost:11434"
+CONFIGURED = False
 COMPONENTS = ["repo", "tests", "ci_gates", "tool_library", "conventions", "docs"]
 MAXMAT, TICKS = 3, 100
-DAILY_CAP = 490
 os.makedirs("run", exist_ok=True)
 LOG = open("run/llm_log.jsonl", "a")
 STATE = {"calls_today": 0}
-DAILY_USAGE_FILE = "run/gemini_daily_usage.json"
 
 class DailyCapReached(RuntimeError):
     pass
 
+def configure(provider=None, model=None, ollama_base_url=None):
+    """Select exactly one provider for a run; keys are only read from env."""
+    global PROVIDER, MODEL, OLLAMA_BASE_URL, CONFIGURED
+    PROVIDER = (provider or os.getenv("ANT_LLM_PROVIDER", "gemini")).strip().lower()
+    if PROVIDER not in PROVIDER_DEFAULTS:
+        raise ValueError("provider must be one of: gemini, groq, ollama")
+    MODEL = model or os.getenv("ANT_LLM_MODEL") or PROVIDER_DEFAULTS[PROVIDER]
+    OLLAMA_BASE_URL = (ollama_base_url or os.getenv("OLLAMA_BASE_URL") or "http://localhost:11434").rstrip("/")
+    if PROVIDER == "gemini" and not os.getenv("GEMINI_API_KEY"):
+        raise RuntimeError("Gemini selected. Set GEMINI_API_KEY in the environment.")
+    if PROVIDER == "groq" and not os.getenv("GROQ_API_KEY"):
+        raise RuntimeError("Groq selected. Set GROQ_API_KEY in the environment.")
+    CONFIGURED = True
+    return config()
+
+def config():
+    return {"provider": PROVIDER, "model": MODEL}
+
 def reserve_daily_request():
-    # Gemini's daily quotas reset on Pacific time. Persist reservations so a
-    # restarted process cannot accidentally spend a second daily allowance.
-    today = datetime.now(ZoneInfo("America/Los_Angeles")).date().isoformat()
+    cap = PROVIDER_DAILY_CAPS[PROVIDER]
+    if cap is None: return
+    # Gemini quota resets on Pacific time; other remote provider guard uses UTC.
+    today = (datetime.now(ZoneInfo("America/Los_Angeles")) if PROVIDER == "gemini"
+             else datetime.now(ZoneInfo("UTC"))).date().isoformat()
+    safe_model = re.sub(r"[^A-Za-z0-9_.-]+", "_", MODEL)
+    # Preserve Gemini's existing shared counter so a code update cannot reset
+    # reservations already made by an earlier experiment run.
+    usage_file = "run/gemini_daily_usage.json" if PROVIDER == "gemini" else f"run/{PROVIDER}_{safe_model}_daily_usage.json"
     try:
-        with open(DAILY_USAGE_FILE) as f:
-            usage = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        usage = {"date": today, "requests_reserved": 0}
-    if usage.get("date") != today:
-        usage = {"date": today, "requests_reserved": 0}
-    if usage.get("requests_reserved", 0) >= DAILY_CAP:
-        raise DailyCapReached("daily cap guard hit")
+        with open(usage_file) as f: usage = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError): usage = {"date": today, "requests_reserved": 0}
+    if usage.get("date") != today: usage = {"date": today, "requests_reserved": 0}
+    if usage.get("requests_reserved", 0) >= cap:
+        raise DailyCapReached(f"{PROVIDER} daily safety cap reached ({cap})")
     usage["requests_reserved"] = usage.get("requests_reserved", 0) + 1
-    tmp = DAILY_USAGE_FILE + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(usage, f)
-    os.replace(tmp, DAILY_USAGE_FILE)
+    tmp = usage_file + ".tmp"
+    with open(tmp, "w") as f: json.dump(usage, f)
+    os.replace(tmp, usage_file)
 
 def llm(prompt, sysmsg, max_tokens=4000):
-    if STATE["calls_today"] >= DAILY_CAP:
-        raise DailyCapReached("daily cap guard hit")
-    body = {"systemInstruction": {"parts": [{"text": sysmsg}]},
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.4, "maxOutputTokens": max_tokens}}
+    if not CONFIGURED: configure()
+    cap = PROVIDER_DAILY_CAPS[PROVIDER]
     for attempt in range(4):
+        if cap is not None and STATE["calls_today"] >= cap:
+            raise DailyCapReached(f"{PROVIDER} daily safety cap reached ({cap})")
         reserve_daily_request()
         STATE["calls_today"] += 1
         t0 = time.time()
         try:
-            req = urllib.request.Request(URL, data=json.dumps(body).encode(),
-                headers={"Content-Type": "application/json", "x-goog-api-key": KEY})
-            r = json.load(urllib.request.urlopen(req, timeout=90))
-            um = r.get("usageMetadata", {})
-            txt = "".join(p.get("text", "") for p in r["candidates"][0]["content"]["parts"])
-            LOG.write(json.dumps({"ts": time.time(), "ok": True, "lat": round(time.time()-t0,2),
-                "ptok": um.get("promptTokenCount"), "ctok": um.get("candidatesTokenCount")})+"\n"); LOG.flush()
-            time.sleep(4.2)  # 15 RPM
+            if PROVIDER == "gemini":
+                body = {"systemInstruction": {"parts": [{"text": sysmsg}]}, "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.4, "maxOutputTokens": max_tokens}}
+                req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent",
+                    data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "x-goog-api-key": os.environ["GEMINI_API_KEY"]})
+                r = json.load(urllib.request.urlopen(req, timeout=90)); usage = r.get("usageMetadata", {})
+                txt = "".join(p.get("text", "") for p in r["candidates"][0]["content"]["parts"])
+                ptok, ctok = usage.get("promptTokenCount"), usage.get("candidatesTokenCount")
+                time.sleep(4.2)
+            elif PROVIDER == "groq":
+                body = {"model": MODEL, "messages": [{"role": "system", "content": sysmsg}, {"role": "user", "content": prompt}],
+                        "temperature": 0.4, "max_tokens": max_tokens}
+                req = urllib.request.Request("https://api.groq.com/openai/v1/chat/completions", data=json.dumps(body).encode(),
+                    headers={"Content-Type": "application/json", "Authorization": "Bearer " + os.environ["GROQ_API_KEY"]})
+                r = json.load(urllib.request.urlopen(req, timeout=90)); usage = r.get("usage", {})
+                txt = r["choices"][0]["message"]["content"]
+                ptok, ctok = usage.get("prompt_tokens"), usage.get("completion_tokens")
+                time.sleep(1.0)
+            else:
+                body = {"model": MODEL, "messages": [{"role": "system", "content": sysmsg}, {"role": "user", "content": prompt}],
+                        "stream": False, "options": {"temperature": 0.4, "num_predict": max_tokens}}
+                req = urllib.request.Request(f"{OLLAMA_BASE_URL}/api/chat", data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+                r = json.load(urllib.request.urlopen(req, timeout=90)); usage = r
+                txt = r["message"]["content"]
+                ptok, ctok = usage.get("prompt_eval_count"), usage.get("eval_count")
+            LOG.write(json.dumps({"ts": time.time(), "ok": True, "provider": PROVIDER, "model": MODEL,
+                "lat": round(time.time()-t0,2), "ptok": ptok, "ctok": ctok})+"\n"); LOG.flush()
             return txt
         except urllib.error.HTTPError as e:
-            LOG.write(json.dumps({"ts": time.time(), "ok": False, "http": e.code})+"\n"); LOG.flush()
-            if e.code in (429, 500, 503):
+            LOG.write(json.dumps({"ts": time.time(), "ok": False, "provider": PROVIDER, "model": MODEL, "http": e.code})+"\n"); LOG.flush()
+            if e.code in (429, 500, 503) and attempt < 3:
                 time.sleep(min(60, 8*(attempt+1))); continue
             raise
         except Exception as e:
-            LOG.write(json.dumps({"ts": time.time(), "ok": False, "err": str(e)[:120]})+"\n"); LOG.flush()
-            time.sleep(8*(attempt+1))
+            # Never write exception payloads or request headers to logs.
+            LOG.write(json.dumps({"ts": time.time(), "ok": False, "provider": PROVIDER, "model": MODEL,
+                                  "error_type": type(e).__name__})+"\n"); LOG.flush()
+            if attempt < 3: time.sleep(8*(attempt+1)); continue
+            raise
     raise RuntimeError("llm failed after retries")
 
 def parse_json(txt):
