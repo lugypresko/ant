@@ -15,13 +15,15 @@
 ```
 export GEMINI_API_KEY=...   # מפתח Gemini API, חובה
 python3 exp4.py coding      # 5 זרועות x 5 זרעים x 10 משימות, תקציב 25 קריאות לריצה
-python3 exp4.py decomp      # 4 זרועות x 2 זרעים x 5 דרישות, תקציב 13 קריאות לריצה
+python3 exp4.py decomp      # 5 זרועות x 2 זרעים x 15 דרישות, עד 13 קריאות לריצה
 ```
-זרועות: colony (מושבה אדפטיבית), central (סוכן יחיד), pool (4 פועלים גנריים), cells (4 תאים מתמחים), blueprint (שלד דטרמיניסטי בסגנון Minions). התקדמות נשמרת ב-`run4/`; הפעלה חוזרת ממשיכה בלי כפילות.
+זרועות: colony (מושבה אדפטיבית), central (סוכן יחיד), pool (4 פועלים גנריים), cells (4 תאים עם נקודות מבט מתמחות), blueprint (שלד פירוק קבוע). פירוק הדרישות כולל את 10 הדרישות הקטנות ב-`ground_truth.py` ואת 5 הדרישות המערכתיות ב-`ground_truth_hard.py`. ציון הכיסוי מבוסס על עלים שנכתבו מראש; מעבר מלא מוגדר ככיסוי 100%.
 
-מגבלות חינם: Gemini 3.5 Flash Lite: 15 בקשות/דקה, 500 בקשות/יום. הריצה המלאה כ-900 קריאות, כלומר כיומיים. ניתוב משני אופציונלי ל-Cloudflare Workers AI דרך `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`.
+למשפחת `decomp` יש עד 1,950 בקשות מודל (5 זרועות x 2 זרעים x 15 דרישות x 13), לפני ניסיונות חוזרים. היא דורשת לפחות ארבעה חלונות מכסה יומיים אם המכסה היא 500 בקשות ליום. `run4/` שומר תוצאות והתקדמות; מכסת הבקשות נשמרת גם ב-`run/gemini_daily_usage.json`, כדי שהפעלה מחדש באותו יום לא תשתמש במכסה יומית נוספת. בסיכום `run4/summary_decomp.json` נשמרים שיעור מעבר מלא, כיסוי ממוצע, בקשות API בפועל וסוגי כשלים.
+
+מגבלות חינם: הגדרות Gemini תלויות במודל, בפרויקט ובחשבון; יש לבדוק את המכסה הפעילה ב-AI Studio לפני הרצה. סקריפט Gemini מגביל את עצמו ל-490 בקשות שמורות ביום, ושומר זאת בין הפעלות. ניתוב משני ל-Cloudflare Workers AI אופציונלי דרך `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`; יש להסיר משתנים אלה כדי לכפות שימוש ב-Gemini בלבד.
 
 כלל ברזל: אסור שום תשלום. עוצרים בכל דרישת כרטיס, טלפון או אימות זהות. השכבה החינמית של Gemini משתמשת בפרומפטים לאימון; תוכן הניסוי סינתטי בלבד.
 
 ## English
-Pure-code ant colony (state machine, evaporating pheromones, response thresholds, queen spawn-rate) routing single-call LLM workers, vs central agent, fixed pool, 4 cells, and a deterministic blueprint arm. Coding tasks and requirement decomposition with human-authored ground truth (labeled as such). Requires `GEMINI_API_KEY` env var (free tier: 15 RPM, 500 RPD; full run ~900 calls, about two days). Run `python3 exp4.py coding` then `python3 exp4.py decomp`; progress checkpoints in `run4/`. Scripted zero-cost simulations for experiments 2, 2b, 3, 3b included. No spending allowed; stop at any card, phone or ID check. Gemini's free tier trains on prompts; experiment content is synthetic only.
+Pure-code ant colony (state machine, evaporating pheromones, response thresholds, queen spawn-rate) routing single-call LLM workers, vs central agent, fixed pool, 4 cells, and a blueprint arm. Coding tasks and requirement decomposition use human-authored ground truth (labeled as such). Run `python3 exp4.py decomp` for all 15 authored requirements, 5 arms, and 2 seeds (up to 1,950 requests plus retries); at a 500-RPD limit this may need at least four daily quota windows. `python3 exp4.py coding` is a separate family. Progress is checkpointed in `run4/`; Gemini requests are reserved to a 490-request daily cap across restarts using Pacific time. Gemini quotas vary by project, model, and account; check AI Studio before running. Scripted zero-cost simulations for experiments 2, 2b, 3, 3b included. No spending allowed; stop at any card, phone or ID check. Gemini's free tier may use prompts to improve products; experiment content is synthetic only.
