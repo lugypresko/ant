@@ -174,7 +174,8 @@ def run_decomp_arm(arm, req, seed, budget=13):
     queue = [(req["req"], 0)]
     alltext = [req["req"]]
     if arm == "blueprint":
-        # fixed skeleton: requirement -> chunks, then each chunk -> leaves; no adaptivity
+        # Fixed breadth-first skeleton: expand requirement, then each generated
+        # level in order. It can use the same per-requirement call budget as other arms.
         if calls < budget:
             try:
                 chunks = decompose_call(req["req"]); calls += 1
@@ -186,11 +187,14 @@ def run_decomp_arm(arm, req, seed, budget=13):
                         "api_requests": B.STATE["calls_today"] - requests_before,
                         "nodes": len(alltext), "failures": failures}
             tree[req["req"]] = chunks; alltext += chunks
-            for c in chunks[:3]:
-                if calls >= budget: break
+            pending = [(c, 1) for c in chunks]
+            while pending and calls < budget:
+                c, depth = pending.pop(0)
                 try:
                     subs = decompose_call(c); calls += 1
                     tree[c] = subs; alltext += subs
+                    if depth < 2:
+                        pending.extend((sub, depth + 1) for sub in subs)
                 except B.DailyCapReached:
                     raise
                 except Exception as e:
