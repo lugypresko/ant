@@ -5,7 +5,7 @@
 # Family A: hard coding tasks. Family B: requirement decomposition.
 # Arms: colony, central, pool (fixed 4 generic), cells (4 fixed specialists),
 # blueprint (deterministic skeleton). Equal call budget per arm.
-import json, os, random, sys, time
+import argparse, json, os, random, sys, time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import nest_llm as B
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -19,31 +19,7 @@ TYPES = {  # task id -> type tag for specialization
  "h01":"parse","h07":"parse","h06":"parse","h09":"algo","h03":"algo","h08":"algo",
  "h05":"algo","h04":"parse","h02":"struct","h10":"struct"}
 
-CF_KEY = os.environ.get("CLOUDFLARE_API_TOKEN", "")
-CF_ACCOUNT = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "")
-CF_MODEL = "@cf/meta/llama-3.1-8b-instruct-awq"
-def cf_call(prompt, max_tokens=1500):
-    import urllib.request
-    key, acct = CF_KEY, CF_ACCOUNT
-    url = f"https://api.cloudflare.com/client/v4/accounts/{acct}/ai/run/{CF_MODEL}"
-    body = {"messages": [{"role": "system", "content": B.SYS_CODE}, {"role": "user", "content": prompt}],
-            "max_tokens": max_tokens}
-    req = urllib.request.Request(url, data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json", "Authorization": "Bearer " + key})
-    r = json.load(urllib.request.urlopen(req, timeout=90))
-    B.STATE["calls_today"] += 1
-    B.LOG.write(json.dumps({"ts": time.time(), "ok": True, "provider": "cloudflare"}) + "\n"); B.LOG.flush()
-    time.sleep(1.0)
-    return r["result"]["response"]
-USE_CF = bool(CF_KEY and CF_ACCOUNT)
-_call_counter = [0]
 def worker_call(prompt, max_tokens=1500):
-    _call_counter[0] += 1
-    if USE_CF and _call_counter[0] % 2 == 0:
-        try:
-            return cf_call(prompt, max_tokens)
-        except Exception:
-            pass  # fall back to Gemini
     return B.llm(prompt, B.SYS_CODE, max_tokens=max_tokens)
 
 def attempt_task(task, context=""):
@@ -283,21 +259,40 @@ def summarize_decomp_results(done):
     return summary
 
 def main():
-    part = sys.argv[1]
+    parser = argparse.ArgumentParser(description="Run the ant experiment with a single selected LLM provider.")
+    parser.add_argument("part", choices=("coding", "decomp"))
+    parser.add_argument("--provider", choices=("gemini", "groq", "ollama"), default=None)
+    parser.add_argument("--model", default=None, help="Model ID; defaults to the provider-specific experiment model.")
+    parser.add_argument("--ollama-base-url", default=None)
+    args = parser.parse_args()
+    part = args.part
+    run_config = B.configure(args.provider, args.model, args.ollama_base_url)
     ckfile = f"run4/ckpt_{part}.json"
     os.makedirs("run4", exist_ok=True)
     state = json.load(open(ckfile)) if os.path.exists(ckfile) else {"done": {}}
+    prior_config = state.get("config")
+    if prior_config is None and state.get("done"):
+        # Legacy checkpoints were produced by the Gemini-only version.
+        prior_config = {"provider": "gemini", "model": "gemini-3.5-flash-lite"}
+    if prior_config is not None and prior_config != run_config:
+        raise SystemExit(f"Checkpoint uses {prior_config}; selected run uses {run_config}. Start with a fresh run4 checkpoint to switch providers/models.")
+    state["config"] = run_config
     def save():
         tmp = ckfile + ".tmp"; json.dump(state, open(tmp, "w")); os.replace(tmp, ckfile)
+    def write_results(path, results):
+        with open(path, "w") as f:
+            json.dump({"run": run_config, "results": results}, f, indent=1)
     if part == "coding":
         # 5 arms x 5 seeds x 10 tasks, budget 25 calls per run
         for arm in ("colony", "central", "pool", "cells", "blueprint"):
             for seed in range(5):
                 key = f"{arm}:{seed}"
                 if key in state["done"]: continue
-                state["done"][key] = run_coding_arm(arm, HARD_TASKS, 100 + seed, 25)
+                result = run_coding_arm(arm, HARD_TASKS, 100 + seed, 25)
+                result.update(run_config)
+                state["done"][key] = result
                 save(); print(key, state["done"][key]["solved"], state["done"][key]["calls"], flush=True)
-        json.dump(state["done"], open("run4/results_coding.json", "w"), indent=1)
+        write_results("run4/results_coding.json", state["done"])
     elif part == "decomp":
         reqs = REQUIREMENTS + HARD_REQUIREMENTS
         for arm in ("colony", "central", "pool", "cells", "blueprint"):
@@ -310,13 +305,16 @@ def main():
                     except B.DailyCapReached:
                         save()
                         print("Daily free-tier request cap reached; resume this command after the quota reset.", flush=True)
-                        json.dump(state["done"], open("run4/results_decomp.json", "w"), indent=1)
-                        json.dump(summarize_decomp_results(state["done"]), open("run4/summary_decomp.json", "w"), indent=1)
+                        write_results("run4/results_decomp.json", state["done"])
+                        with open("run4/summary_decomp.json", "w") as f:
+                            json.dump({"run": run_config, "arms": summarize_decomp_results(state["done"])}, f, indent=1)
                         return
+                    result.update(run_config)
                     state["done"][key] = result
                     save(); print(key, state["done"][key], flush=True)
-        json.dump(state["done"], open("run4/results_decomp.json", "w"), indent=1)
-        json.dump(summarize_decomp_results(state["done"]), open("run4/summary_decomp.json", "w"), indent=1)
+        write_results("run4/results_decomp.json", state["done"])
+        with open("run4/summary_decomp.json", "w") as f:
+            json.dump({"run": run_config, "arms": summarize_decomp_results(state["done"])}, f, indent=1)
 
 if __name__ == "__main__":
     main()
