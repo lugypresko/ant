@@ -25,3 +25,12 @@ python3 exp4.py decomp      # 4 זרועות x 2 זרעים x 5 דרישות, ת
 
 ## English
 Pure-code ant colony (state machine, evaporating pheromones, response thresholds, queen spawn-rate) routing single-call LLM workers, vs central agent, fixed pool, 4 cells, and a deterministic blueprint arm. Coding tasks and requirement decomposition with human-authored ground truth (labeled as such). Requires `GEMINI_API_KEY` env var (free tier: 15 RPM, 500 RPD; full run ~900 calls, about two days). Run `python3 exp4.py coding` then `python3 exp4.py decomp`; progress checkpoints in `run4/`. Scripted zero-cost simulations for experiments 2, 2b, 3, 3b included. No spending allowed; stop at any card, phone or ID check. Gemini's free tier trains on prompts; experiment content is synthetic only.
+
+
+## ניסוי 5: דרישה עסקית פתוחה
+- פרוטוקול ומטריצת תנאים: [EXPERIMENT5.md](EXPERIMENT5.md)
+- השערות ומדדי תהליך: [PILOT_HYPOTHESES.md](PILOT_HYPOTHESES.md)
+- תוכנית ריצות ללא קריאות API: \`python3 exp5_plan.py --pilot\`
+- ניתוח traces: \`python3 analyze_traces.py run5/traces --out run5/process_metrics.json\`
+
+פיילוט ברירת המחדל משווה \`single\`, \`central_sdlc\`, \`colony\`. איכות התוצר היא מדד משני; דפוס העבודה הוא המדד הראשי. הכלים לתכנון ולניתוח אינם מפעילים מודל.
