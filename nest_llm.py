@@ -4,6 +4,8 @@
 # 20 downstream coding tasks evaluated by running generated code vs unit tests.
 # Scale arm: sizes 10/30/100/300, scripted decisions + LLM spot-checks.
 import json, os, random, re, subprocess, sys, tempfile, time, urllib.request, urllib.error
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 KEY = os.environ.get("GEMINI_API_KEY", "")
 if not KEY:
@@ -16,14 +18,38 @@ DAILY_CAP = 490
 os.makedirs("run", exist_ok=True)
 LOG = open("run/llm_log.jsonl", "a")
 STATE = {"calls_today": 0}
+DAILY_USAGE_FILE = "run/gemini_daily_usage.json"
+
+class DailyCapReached(RuntimeError):
+    pass
+
+def reserve_daily_request():
+    # Gemini's daily quotas reset on Pacific time. Persist reservations so a
+    # restarted process cannot accidentally spend a second daily allowance.
+    today = datetime.now(ZoneInfo("America/Los_Angeles")).date().isoformat()
+    try:
+        with open(DAILY_USAGE_FILE) as f:
+            usage = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        usage = {"date": today, "requests_reserved": 0}
+    if usage.get("date") != today:
+        usage = {"date": today, "requests_reserved": 0}
+    if usage.get("requests_reserved", 0) >= DAILY_CAP:
+        raise DailyCapReached("daily cap guard hit")
+    usage["requests_reserved"] = usage.get("requests_reserved", 0) + 1
+    tmp = DAILY_USAGE_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(usage, f)
+    os.replace(tmp, DAILY_USAGE_FILE)
 
 def llm(prompt, sysmsg, max_tokens=4000):
     if STATE["calls_today"] >= DAILY_CAP:
-        raise RuntimeError("daily cap guard hit")
+        raise DailyCapReached("daily cap guard hit")
     body = {"systemInstruction": {"parts": [{"text": sysmsg}]},
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.4, "maxOutputTokens": max_tokens}}
     for attempt in range(4):
+        reserve_daily_request()
         STATE["calls_today"] += 1
         t0 = time.time()
         try:
