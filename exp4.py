@@ -297,7 +297,7 @@ def main():
     elif part == "decomp":
         reqs = REQUIREMENTS + HARD_REQUIREMENTS
         for arm in ("colony", "central", "pool", "cells", "blueprint"):
-            for seed in range(2):
+            for seed in range(1):
                 for req in reqs:
                     key = f"{arm}:{seed}:{req['id']}"
                     if key in state["done"]: continue
