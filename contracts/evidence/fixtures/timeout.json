@@ -1,0 +1,11 @@
+{
+  "contract_version": "evidence.v1",
+  "trial": { "trial_id": "30000000-0000-4000-8000-000000000004", "strategy": "single_agent", "template_commit": "1111111111111111111111111111111111111111", "contract_version": "m0.v1", "policy_version": "p1" },
+  "attempts": [{ "attempt_id": "31000000-0000-4000-8000-000000000004", "ordinal": 1, "status": "TIMED_OUT", "harness": "taskcell@pinned", "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }],
+  "gate_results": [{ "gate_id": "acceptance", "mandatory": true, "status": "TIMEOUT", "command": ["pytest", "acceptance"], "exit_code": null, "duration_ms": 5000, "output_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }],
+  "budget_events": [],
+  "cleanup": { "status": "CLEANED", "remaining_resources": 0, "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" },
+  "costs": { "measured_usd": 0.5, "estimated_usd": 0.5, "reserved_usd": 1, "unused_reserved_usd": 0.5, "late_reported_usd": 0 },
+  "journal": [{ "sequence": 1, "type": "TRIAL_TIMED_OUT", "event_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "terminal": true }],
+  "terminal_manifest": { "verdict": "TIMED_OUT", "terminal_event_sequence": 1, "manifest_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" }
+}

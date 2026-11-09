@@ -1,0 +1,11 @@
+{
+  "contract_version": "evidence.v1",
+  "trial": { "trial_id": "30000000-0000-4000-8000-000000000003", "strategy": "single_agent", "template_commit": "1111111111111111111111111111111111111111", "contract_version": "m0.v1", "policy_version": "p1" },
+  "attempts": [{ "attempt_id": "31000000-0000-4000-8000-000000000003", "ordinal": 1, "status": "CANCELED", "harness": "taskcell@pinned", "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }],
+  "gate_results": [{ "gate_id": "acceptance", "mandatory": true, "status": "SKIPPED", "command": ["pytest", "acceptance"], "exit_code": null, "duration_ms": 0, "output_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }],
+  "budget_events": [{ "sequence": 1, "kind": "RELEASED", "operation": "AGENT", "amount_usd": 0.5 }],
+  "cleanup": { "status": "CLEANED", "remaining_resources": 0, "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" },
+  "costs": { "measured_usd": 0.2, "estimated_usd": 0.2, "reserved_usd": 1, "unused_reserved_usd": 0.8, "late_reported_usd": 0 },
+  "journal": [{ "sequence": 1, "type": "TRIAL_CANCELED", "event_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "terminal": true }],
+  "terminal_manifest": { "verdict": "CANCELED", "terminal_event_sequence": 1, "manifest_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" }
+}

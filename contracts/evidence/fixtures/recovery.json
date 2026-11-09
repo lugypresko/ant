@@ -1,0 +1,14 @@
+{
+  "contract_version": "evidence.v1",
+  "trial": { "trial_id": "30000000-0000-4000-8000-000000000005", "strategy": "single_agent", "template_commit": "1111111111111111111111111111111111111111", "candidate_commit": "2222222222222222222222222222222222222222", "contract_version": "m0.v1", "policy_version": "p1" },
+  "attempts": [{ "attempt_id": "31000000-0000-4000-8000-000000000005", "ordinal": 1, "status": "PASSED", "harness": "taskcell@pinned", "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }],
+  "gate_results": [{ "gate_id": "acceptance", "mandatory": true, "status": "PASS", "command": ["pytest", "acceptance"], "exit_code": 0, "duration_ms": 10, "output_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }],
+  "budget_events": [{ "sequence": 1, "kind": "LATE_USAGE", "operation": "VERIFICATION", "amount_usd": 0.1 }],
+  "cleanup": { "status": "CLEANED", "remaining_resources": 0, "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" },
+  "costs": { "measured_usd": 0.8, "estimated_usd": 0.7, "reserved_usd": 1, "unused_reserved_usd": 0.2, "late_reported_usd": 0.1 },
+  "journal": [
+    { "sequence": 1, "type": "RECOVERY_STARTED", "event_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "terminal": false },
+    { "sequence": 2, "type": "TRIAL_PASSED", "previous_event_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "event_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "terminal": true }
+  ],
+  "terminal_manifest": { "verdict": "PASSED", "terminal_event_sequence": 2, "manifest_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" }
+}

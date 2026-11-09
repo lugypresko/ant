@@ -1,0 +1,10 @@
+{
+  "contract_version": "evidence.v1",
+  "trial": { "trial_id": "30000000-0000-4000-8000-000000000007", "strategy": "single_agent", "template_commit": "1111111111111111111111111111111111111111", "contract_version": "m0.v1", "policy_version": "p1" },
+  "attempts": [{ "attempt_id": "31000000-0000-4000-8000-000000000007", "ordinal": 1, "status": "FAILED", "harness": "fake", "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }],
+  "gate_results": [{ "gate_id": "acceptance", "mandatory": true, "status": "FAIL", "command": ["pytest"], "exit_code": 1, "duration_ms": 1, "output_sha256": "" }],
+  "budget_events": [], "cleanup": { "status": "CLEANED", "remaining_resources": 0, "evidence_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" },
+  "costs": { "measured_usd": 0, "estimated_usd": 0, "reserved_usd": 0, "unused_reserved_usd": 0, "late_reported_usd": 0 },
+  "journal": [{ "sequence": 1, "type": "TRIAL_FAILED", "event_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "terminal": true }],
+  "terminal_manifest": { "verdict": "FAILED", "terminal_event_sequence": 1, "manifest_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" }
+}

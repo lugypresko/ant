@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ant.local/contracts/evidence/evidence.v1.schema.json",
+  "title": "M0 Trial Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "trial", "attempts", "gate_results", "budget_events", "cleanup", "costs", "journal", "terminal_manifest"],
+  "properties": {
+    "contract_version": { "const": "evidence.v1" },
+    "trial": { "$ref": "#/$defs/Trial" },
+    "attempts": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/Attempt" } },
+    "gate_results": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/GateResult" } },
+    "budget_events": { "type": "array", "items": { "$ref": "#/$defs/BudgetEvent" } },
+    "cleanup": { "$ref": "#/$defs/CleanupResult" },
+    "delivery": { "$ref": "#/$defs/DeliveryRecord" },
+    "costs": { "$ref": "#/$defs/Costs" },
+    "journal": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/JournalEvent" } },
+    "terminal_manifest": { "$ref": "#/$defs/TerminalManifest" }
+  },
+  "$defs": {
+    "Sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "GitSha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "Trial": {
+      "type": "object", "additionalProperties": false,
+      "required": ["trial_id", "strategy", "template_commit", "contract_version", "policy_version"],
+      "properties": {
+        "trial_id": { "type": "string", "format": "uuid" },
+        "strategy": { "enum": ["single_agent", "multi_agent"] },
+        "template_commit": { "$ref": "#/$defs/GitSha" },
+        "candidate_commit": { "$ref": "#/$defs/GitSha" },
+        "contract_version": { "type": "string", "minLength": 1 },
+        "policy_version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "Attempt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["attempt_id", "ordinal", "status", "harness", "artifact_sha256"],
+      "properties": {
+        "attempt_id": { "type": "string", "format": "uuid" },
+        "ordinal": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "status": { "enum": ["CREATED", "RUNNING", "VERIFYING", "PASSED", "FAILED", "TIMED_OUT", "CANCELED"] },
+        "harness": { "type": "string", "minLength": 1 },
+        "artifact_sha256": { "$ref": "#/$defs/Sha256" }
+      }
+    },
+    "GateResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["gate_id", "mandatory", "status", "command", "duration_ms", "output_sha256"],
+      "properties": {
+        "gate_id": { "type": "string", "minLength": 1 },
+        "mandatory": { "type": "boolean" },
+        "status": { "enum": ["PASS", "FAIL", "ERROR", "TIMEOUT", "SKIPPED"] },
+        "command": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "exit_code": { "type": ["integer", "null"] },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "output_sha256": { "$ref": "#/$defs/Sha256" }
+      }
+    },
+    "BudgetEvent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sequence", "kind", "operation", "amount_usd"],
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1 },
+        "kind": { "enum": ["RESERVED", "RECONCILED", "RELEASED", "EXHAUSTED", "LATE_USAGE"] },
+        "operation": { "enum": ["AGENT", "REPAIR", "INTEGRATION", "VERIFICATION", "DELIVERY"] },
+        "amount_usd": { "type": "number", "minimum": 0 }
+      }
+    },
+    "CleanupResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "remaining_resources", "evidence_sha256"],
+      "properties": {
+        "status": { "enum": ["CLEANED", "FAILED_CLEANUP", "NOT_REQUIRED"] },
+        "remaining_resources": { "type": "integer", "minimum": 0 },
+        "evidence_sha256": { "$ref": "#/$defs/Sha256" }
+      }
+    },
+    "DeliveryRecord": {
+      "type": "object", "additionalProperties": false,
+      "required": ["delivery_id", "status", "record_sha256"],
+      "properties": {
+        "delivery_id": { "type": "string", "format": "uuid" },
+        "status": { "enum": ["NOT_REQUESTED", "DRAFT_PR_CREATED", "FAILED", "QUARANTINED"] },
+        "record_sha256": { "$ref": "#/$defs/Sha256" }
+      }
+    },
+    "Costs": {
+      "type": "object", "additionalProperties": false,
+      "required": ["measured_usd", "estimated_usd", "reserved_usd", "unused_reserved_usd", "late_reported_usd"],
+      "properties": {
+        "measured_usd": { "type": "number", "minimum": 0 },
+        "estimated_usd": { "type": "number", "minimum": 0 },
+        "reserved_usd": { "type": "number", "minimum": 0 },
+        "unused_reserved_usd": { "type": "number", "minimum": 0 },
+        "late_reported_usd": { "type": "number", "minimum": 0 }
+      }
+    },
+    "JournalEvent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sequence", "type", "event_sha256", "terminal"],
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "previous_event_sha256": { "$ref": "#/$defs/Sha256" },
+        "event_sha256": { "$ref": "#/$defs/Sha256" },
+        "terminal": { "type": "boolean" }
+      }
+    },
+    "TerminalManifest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["verdict", "terminal_event_sequence", "manifest_sha256"],
+      "properties": {
+        "verdict": { "enum": ["PASSED", "FAILED", "CANCELED", "TIMED_OUT", "ESCALATED"] },
+        "terminal_event_sequence": { "type": "integer", "minimum": 1 },
+        "manifest_sha256": { "$ref": "#/$defs/Sha256" }
+      }
+    }
+  }
+}
