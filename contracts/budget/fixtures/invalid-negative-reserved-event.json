@@ -1,0 +1,9 @@
+{
+  "contract_version": "1.0.0", "hard_limit_usd": 10, "token_limit": 1000,
+  "wall_clock_deadline_seconds": 60, "max_total_attempts": 3,
+  "cost_components": ["agent", "repair", "integration", "verification", "delivery"],
+  "require_reservation_before_operation": true,
+  "late_usage": { "record_after_terminal": true, "may_increase_remaining_budget": false },
+  "terminal_actions": {"cancellation":["block-new-operations","revoke-credentials","terminate-process-tree","cleanup-trial-resources"],"exhaustion":["block-new-operations","revoke-credentials","terminate-process-tree","cleanup-trial-resources"]},
+  "events": [{"event_id":"11111111-1111-4111-8111-111111111111","trial_id":"22222222-2222-4222-8222-222222222222","type":"RESERVED","component":"agent","amount_usd":-1,"tokens":0,"occurred_at":"2026-11-09T00:00:00Z"}]
+}

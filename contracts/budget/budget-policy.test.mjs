@@ -18,9 +18,17 @@ function errors(policy) {
   if (policy.require_reservation_before_operation !== true) result.push("reservation-required");
   if (policy.late_usage?.may_increase_remaining_budget !== false) result.push("late-usage-increase");
   if (policy.late_usage?.record_after_terminal !== true) result.push("late-usage-terminal");
-  const actions = policy.terminal_actions ?? [];
-  for (const action of ["block-new-operations", "revoke-credentials", "terminate-process-tree", "cleanup-trial-resources"]) {
-    if (!actions.includes(action)) result.push(`terminal:${action}`);
+  for (const reason of ["cancellation", "exhaustion"]) {
+    const actions = policy.terminal_actions?.[reason] ?? [];
+    for (const action of ["block-new-operations", "revoke-credentials", "terminate-process-tree", "cleanup-trial-resources"]) {
+      if (!actions.includes(action)) result.push(`terminal:${reason}:${action}`);
+    }
+  }
+  for (const event of policy.events ?? []) {
+    if (event.amount_usd < 0 || event.tokens < 0) result.push(`event-negative:${event.type}`);
+    if (event.type === "RESERVED" && !(event.amount_usd > 0 || event.tokens > 0)) {
+      result.push("reservation-empty");
+    }
   }
   return result;
 }
@@ -43,7 +51,10 @@ for (const [fixture, expected] of [
   ["invalid-missing-verification-cost.json", "cost:verification"],
   ["invalid-operation-without-reservation.json", "reservation-required"],
   ["invalid-late-usage.json", "late-usage-increase"],
-  ["invalid-cancellation-actions.json", "terminal:revoke-credentials"]
+  ["invalid-negative-reserved-event.json", "event-negative:RESERVED"],
+  ["invalid-empty-reserved-event.json", "reservation-empty"],
+  ["invalid-cancellation-actions.json", "terminal:cancellation:revoke-credentials"],
+  ["invalid-exhaustion-actions.json", "terminal:exhaustion:cleanup-trial-resources"]
 ]) {
   test(`rejects ${fixture}`, () => {
     assert.ok(errors(load(`./fixtures/${fixture}`)).includes(expected));

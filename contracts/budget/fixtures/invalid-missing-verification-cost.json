@@ -4,5 +4,5 @@
   "cost_components": ["agent", "repair", "integration", "delivery"],
   "require_reservation_before_operation": true,
   "late_usage": { "record_after_terminal": true, "may_increase_remaining_budget": false },
-  "terminal_actions": ["block-new-operations", "revoke-credentials", "terminate-process-tree", "cleanup-trial-resources"]
+  "terminal_actions": {"cancellation":["block-new-operations","revoke-credentials","terminate-process-tree","cleanup-trial-resources"],"exhaustion":["block-new-operations","revoke-credentials","terminate-process-tree","cleanup-trial-resources"]}
 }

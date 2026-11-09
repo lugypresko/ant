@@ -38,6 +38,18 @@
       }
     },
     "terminal_actions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cancellation", "exhaustion"],
+      "properties": {
+        "cancellation": { "$ref": "#/$defs/terminalActionSet" },
+        "exhaustion": { "$ref": "#/$defs/terminalActionSet" }
+      }
+    },
+    "events": { "type": "array", "items": { "$ref": "#/$defs/budgetEvent" } }
+  },
+  "$defs": {
+    "terminalActionSet": {
       "type": "array",
       "uniqueItems": true,
       "allOf": [
@@ -48,9 +60,6 @@
       ],
       "items": { "enum": ["block-new-operations", "revoke-credentials", "terminate-process-tree", "cleanup-trial-resources"] }
     },
-    "events": { "type": "array", "items": { "$ref": "#/$defs/budgetEvent" } }
-  },
-  "$defs": {
     "budgetEvent": {
       "type": "object",
       "additionalProperties": false,
@@ -65,7 +74,18 @@
         "reservation_id": { "type": ["string", "null"] },
         "occurred_at": { "type": "string", "format": "date-time" },
         "terminal_state": { "type": ["string", "null"], "enum": ["PASSED", "FAILED", "CANCELED", "TIMED_OUT", null] }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "RESERVED" } }, "required": ["type"] },
+          "then": {
+            "anyOf": [
+              { "properties": { "amount_usd": { "exclusiveMinimum": 0 } } },
+              { "properties": { "tokens": { "minimum": 1 } } }
+            ]
+          }
+        }
+      ]
     }
   }
 }
