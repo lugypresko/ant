@@ -2,7 +2,7 @@
   "integration_branch": "integration/m0",
   "current_gate": "bootstrap",
   "work_packages": {
-    "WP-000": "pending",
+    "WP-000": "complete",
     "WP-010": "pending",
     "WP-011": "pending",
     "WP-012": "pending",
