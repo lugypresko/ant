@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ant.local/contracts/http/order-api-contract-v1.schema.json",
+  "title": "ANT Order API Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "media_type", "idempotency", "endpoints", "concurrency"],
+  "properties": {
+    "contract_version": { "const": "1.0.0" },
+    "media_type": { "const": "application/json" },
+    "idempotency": { "$ref": "#/$defs/idempotencyPolicy" },
+    "endpoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["create_order", "get_order"],
+      "properties": {
+        "create_order": { "$ref": "#/$defs/createOrderEndpoint" },
+        "get_order": { "$ref": "#/$defs/getOrderEndpoint" }
+      }
+    },
+    "concurrency": { "$ref": "#/$defs/concurrencyPolicy" }
+  },
+  "$defs": {
+    "money": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["currency", "amount_minor"],
+      "properties": {
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "amount_minor": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "createOrderRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["customer_id", "total"],
+      "properties": {
+        "customer_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "total": { "$ref": "#/$defs/money" }
+      }
+    },
+    "orderResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "customer_id", "total", "status"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "customer_id": { "type": "string" },
+        "total": { "$ref": "#/$defs/money" },
+        "status": { "enum": ["created"] }
+      }
+    },
+    "errorResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "enum": ["INVALID_REQUEST", "IDEMPOTENCY_CONFLICT", "ORDER_NOT_FOUND"] },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "idempotencyPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["header", "min_length", "max_length", "pattern", "payload_hash"],
+      "properties": {
+        "header": { "const": "Idempotency-Key" },
+        "min_length": { "const": 8 },
+        "max_length": { "const": 128 },
+        "pattern": { "const": "^[A-Za-z0-9._:-]+$" },
+        "payload_hash": { "const": "sha256-rfc8785-canonical-json" }
+      }
+    },
+    "createOrderEndpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "path", "request", "responses"],
+      "properties": {
+        "method": { "const": "POST" },
+        "path": { "const": "/orders" },
+        "request": { "$ref": "#/$defs/createOrderRequest" },
+        "responses": {
+          "type": "object",
+          "required": ["201", "200", "409", "422"],
+          "properties": {
+            "201": { "$ref": "#/$defs/orderResponse" },
+            "200": { "$ref": "#/$defs/orderResponse" },
+            "409": { "$ref": "#/$defs/errorResponse" },
+            "422": { "$ref": "#/$defs/errorResponse" }
+          }
+        }
+      }
+    },
+    "getOrderEndpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "path", "responses"],
+      "properties": {
+        "method": { "const": "GET" },
+        "path": { "const": "/orders/{order_id}" },
+        "responses": {
+          "type": "object",
+          "required": ["200", "404"],
+          "properties": {
+            "200": { "$ref": "#/$defs/orderResponse" },
+            "404": { "$ref": "#/$defs/errorResponse" }
+          }
+        }
+      }
+    },
+    "concurrencyPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["equivalent_requests", "sqlite_journal_mode", "busy_timeout_ms", "retry_deadline_ms", "expected_rows", "unhandled_lock_errors"],
+      "properties": {
+        "equivalent_requests": { "const": 8 },
+        "sqlite_journal_mode": { "const": "WAL" },
+        "busy_timeout_ms": { "const": 5000 },
+        "retry_deadline_ms": { "const": 5000 },
+        "expected_rows": { "const": 1 },
+        "unhandled_lock_errors": { "const": 0 }
+      }
+    }
+  }
+}
