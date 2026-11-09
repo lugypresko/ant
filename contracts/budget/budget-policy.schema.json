@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ant.local/contracts/budget/budget-policy.schema.json",
+  "title": "M0 Budget and Cancellation Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version", "hard_limit_usd", "token_limit", "wall_clock_deadline_seconds",
+    "max_total_attempts", "cost_components", "require_reservation_before_operation",
+    "late_usage", "terminal_actions"
+  ],
+  "properties": {
+    "contract_version": { "const": "1.0.0" },
+    "hard_limit_usd": { "type": "number", "exclusiveMinimum": 0 },
+    "token_limit": { "type": "integer", "minimum": 1 },
+    "wall_clock_deadline_seconds": { "type": "integer", "minimum": 1 },
+    "max_total_attempts": { "const": 3 },
+    "cost_components": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "agent" } },
+        { "contains": { "const": "repair" } },
+        { "contains": { "const": "integration" } },
+        { "contains": { "const": "verification" } },
+        { "contains": { "const": "delivery" } }
+      ],
+      "items": { "enum": ["agent", "repair", "integration", "verification", "delivery"] }
+    },
+    "require_reservation_before_operation": { "const": true },
+    "late_usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["record_after_terminal", "may_increase_remaining_budget"],
+      "properties": {
+        "record_after_terminal": { "const": true },
+        "may_increase_remaining_budget": { "const": false }
+      }
+    },
+    "terminal_actions": {
+      "type": "array",
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "block-new-operations" } },
+        { "contains": { "const": "revoke-credentials" } },
+        { "contains": { "const": "terminate-process-tree" } },
+        { "contains": { "const": "cleanup-trial-resources" } }
+      ],
+      "items": { "enum": ["block-new-operations", "revoke-credentials", "terminate-process-tree", "cleanup-trial-resources"] }
+    },
+    "events": { "type": "array", "items": { "$ref": "#/$defs/budgetEvent" } }
+  },
+  "$defs": {
+    "budgetEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "trial_id", "type", "amount_usd", "tokens", "occurred_at"],
+      "properties": {
+        "event_id": { "type": "string", "format": "uuid" },
+        "trial_id": { "type": "string", "format": "uuid" },
+        "type": { "enum": ["RESERVED", "RECONCILED", "RELEASED", "EXHAUSTED", "LATE_USAGE_RECORDED"] },
+        "component": { "enum": ["agent", "repair", "integration", "verification", "delivery"] },
+        "amount_usd": { "type": "number", "minimum": 0 },
+        "tokens": { "type": "integer", "minimum": 0 },
+        "reservation_id": { "type": ["string", "null"] },
+        "occurred_at": { "type": "string", "format": "date-time" },
+        "terminal_state": { "type": ["string", "null"], "enum": ["PASSED", "FAILED", "CANCELED", "TIMED_OUT", null] }
+      }
+    }
+  }
+}
