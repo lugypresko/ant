@@ -1,0 +1,21 @@
+{
+  "work_package": "WP-014",
+  "base_sha": "6edff17bdfa6e25802a5027c6ef6ccb8d184e502",
+  "result_sha": "PENDING_COMMIT",
+  "owned_paths": ["contracts/repository/**", "handoffs/WP-014.json"],
+  "contracts_consumed": [],
+  "contracts_produced": ["repository-lifecycle.v1"],
+  "commands_run": [
+    "node --test contracts/repository/repository-lifecycle.test.mjs",
+    "node integration/verify-contracts.mjs"
+  ],
+  "tests": [
+    "private draft-only lifecycle",
+    "deterministic partial-failure recovery",
+    "prohibited actions",
+    "remote conflict quarantine",
+    "delivery idempotency"
+  ],
+  "known_gaps": ["Cross-field invariants require the lifecycle validator in addition to JSON Schema."],
+  "shared_file_requests": []
+}

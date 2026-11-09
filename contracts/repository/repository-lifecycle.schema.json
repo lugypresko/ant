@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ant.local/contracts/repository/repository-lifecycle.v1.schema.json",
+  "title": "M0 Repository Delivery Lifecycle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "delivery_id", "idempotency", "idempotency_key", "repository", "candidate", "status", "events", "prohibited_actions", "reconciliation"],
+  "properties": {
+    "contract_version": { "const": "repository-lifecycle.v1" },
+    "delivery_id": { "type": "string", "format": "uuid" },
+    "idempotency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trial_id", "policy_version"],
+      "properties": {
+        "trial_id": { "type": "string", "format": "uuid" },
+        "policy_version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "idempotency_key": { "type": "string", "pattern": "^delivery:[0-9a-f-]{36}:[A-Za-z0-9._-]+$" },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "name", "visibility", "default_branch"],
+      "properties": {
+        "repository_id": { "type": "integer", "minimum": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+        "visibility": { "const": "private" },
+        "default_branch": { "const": "main" }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template_commit", "candidate_commit", "feature_branch"],
+      "properties": {
+        "template_commit": { "$ref": "#/$defs/GitSha" },
+        "candidate_commit": { "$ref": "#/$defs/GitSha" },
+        "feature_branch": { "type": "string", "pattern": "^factory/[A-Za-z0-9._/-]+$" }
+      }
+    },
+    "pull_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "state", "draft", "head_commit"],
+      "properties": {
+        "number": { "type": "integer", "minimum": 1 },
+        "state": { "const": "open" },
+        "draft": { "const": true },
+        "head_commit": { "$ref": "#/$defs/GitSha" }
+      }
+    },
+    "status": {
+      "enum": ["PENDING", "REPOSITORY_CREATED", "MAIN_PUSHED", "FEATURE_PUSHED", "PR_CREATED", "CI_PENDING", "CI_PASSED", "FAILED", "QUARANTINED"]
+    },
+    "events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/LifecycleEvent" }
+    },
+    "prohibited_actions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["merge", "deploy", "force_push", "workflow_modification"],
+      "properties": {
+        "merge": { "const": false },
+        "deploy": { "const": false },
+        "force_push": { "const": false },
+        "workflow_modification": { "const": false }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["next_action", "remote_conflict"],
+      "properties": {
+        "next_action": { "enum": ["CREATE_REPOSITORY", "PUSH_MAIN", "PUSH_FEATURE", "OPEN_DRAFT_PR", "WAIT_FOR_CI", "COMPLETE", "QUARANTINE"] },
+        "remote_conflict": { "type": "boolean" },
+        "quarantine_reason": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "GitSha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "LifecycleEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequence", "type", "outcome"],
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1 },
+        "type": { "enum": ["CREATE_REPOSITORY", "PUSH_MAIN", "PUSH_FEATURE", "OPEN_DRAFT_PR", "WAIT_FOR_CI"] },
+        "outcome": { "enum": ["SUCCEEDED", "FAILED"] },
+        "remote_id": { "type": ["string", "integer"] },
+        "error_code": { "type": "string" }
+      }
+    }
+  }
+}

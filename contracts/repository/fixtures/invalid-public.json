@@ -1,0 +1,10 @@
+{
+  "contract_version": "repository-lifecycle.v1", "delivery_id": "20000000-0000-4000-8000-000000000005",
+  "idempotency": { "trial_id": "10000000-0000-4000-8000-000000000001", "policy_version": "delivery-p1" },
+  "idempotency_key": "delivery:10000000-0000-4000-8000-000000000001:delivery-p1",
+  "repository": { "owner": "lugypresko", "name": "trial", "visibility": "public", "default_branch": "main" },
+  "candidate": { "template_commit": "1111111111111111111111111111111111111111", "candidate_commit": "2222222222222222222222222222222222222222", "feature_branch": "factory/trial" },
+  "status": "PENDING", "events": [],
+  "prohibited_actions": { "merge": false, "deploy": false, "force_push": false, "workflow_modification": false },
+  "reconciliation": { "next_action": "CREATE_REPOSITORY", "remote_conflict": false }
+}
