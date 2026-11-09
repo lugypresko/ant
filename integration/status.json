@@ -1,0 +1,30 @@
+{
+  "integration_branch": "integration/m0",
+  "current_gate": "bootstrap",
+  "work_packages": {
+    "WP-000": "pending",
+    "WP-010": "pending",
+    "WP-011": "pending",
+    "WP-012": "pending",
+    "WP-013": "pending",
+    "WP-014": "pending",
+    "WP-015": "pending",
+    "WP-100": "pending",
+    "WP-110": "pending",
+    "WP-120": "pending",
+    "WP-130": "pending",
+    "WP-140": "pending",
+    "WP-200": "pending",
+    "WP-210": "pending",
+    "WP-220": "pending",
+    "WP-230": "pending",
+    "WP-300": "pending",
+    "WP-310": "pending",
+    "WP-320": "pending",
+    "WP-400": "pending",
+    "WP-410": "pending",
+    "WP-500": "pending",
+    "WP-510": "pending",
+    "WP-520": "pending"
+  }
+}

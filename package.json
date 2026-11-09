@@ -1,0 +1,16 @@
+{
+  "name": "ant-code-factory",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.13.1",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm -r --if-present test && node --test integration/bootstrap.test.mjs",
+    "verify:contracts": "node integration/verify-contracts.mjs",
+    "verify:all": "pnpm typecheck && pnpm lint && pnpm test && pnpm verify:contracts"
+  }
+}

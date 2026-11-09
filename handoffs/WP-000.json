@@ -1,0 +1,19 @@
+{
+  "work_package": "WP-000",
+  "base_sha": "206a382",
+  "result_sha": "PENDING_COMMIT",
+  "owned_paths": [
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "tsconfig.base.json",
+    "integration/**",
+    "handoffs/WP-000.json"
+  ],
+  "contracts_consumed": [],
+  "contracts_produced": ["workspace-bootstrap-v1"],
+  "commands_run": ["pnpm install --lockfile-only", "pnpm verify:all"],
+  "tests": ["integration/bootstrap.test.mjs"],
+  "known_gaps": [],
+  "shared_file_requests": []
+}
