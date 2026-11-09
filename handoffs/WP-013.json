@@ -1,0 +1,22 @@
+{
+  "work_package": "WP-013",
+  "base_sha": "6edff17bdfa6e25802a5027c6ef6ccb8d184e502",
+  "result_sha": "d4e377141355f8ef5e7cafe8e3cae28bf3f303f5",
+  "owned_paths": ["contracts/budget/**", "handoffs/WP-013.json"],
+  "contracts_consumed": ["workspace-bootstrap-v1"],
+  "contracts_produced": ["budget-policy-v1"],
+  "commands_run": [
+    "node --test contracts/budget/budget-policy.test.mjs",
+    "node integration/verify-contracts.mjs"
+  ],
+  "tests": [
+    "positive hard limits",
+    "three total attempts",
+    "all cost components",
+    "reservation before operation",
+    "late usage after terminal",
+    "cancellation credential revocation and cleanup"
+  ],
+  "known_gaps": ["Provider-side hard-limit support is adapter-specific and will be recorded during runtime integration."],
+  "shared_file_requests": []
+}

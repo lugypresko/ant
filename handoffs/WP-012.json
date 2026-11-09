@@ -1,0 +1,20 @@
+{
+  "work_package": "WP-012",
+  "base_sha": "6edff17bdfa6e25802a5027c6ef6ccb8d184e502",
+  "result_sha": "883f642c091747c58601983eae7f0544e4600c0a",
+  "owned_paths": ["contracts/security/**", "handoffs/WP-012.json"],
+  "contracts_consumed": ["workspace-bootstrap-v1"],
+  "contracts_produced": ["security-policy-v1"],
+  "commands_run": [
+    "node --test contracts/security/security-policy.test.mjs",
+    "node integration/verify-contracts.mjs"
+  ],
+  "tests": [
+    "valid execution/verification separation",
+    "unowned capability rejection",
+    "required egress denial categories",
+    "short-lived secret delivery and redaction"
+  ],
+  "known_gaps": ["Runtime enforcement is scheduled for Gate 1; this package freezes its policy contract only."],
+  "shared_file_requests": []
+}
