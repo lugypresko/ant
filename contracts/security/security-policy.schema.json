@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ant.local/contracts/security/security-policy.schema.json",
+  "title": "M0 Security and Tool Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "profiles", "capabilities", "protected_paths", "egress", "secrets"],
+  "properties": {
+    "contract_version": { "const": "1.0.0" },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution", "verification"],
+      "properties": {
+        "execution": { "$ref": "#/$defs/profile" },
+        "verification": { "$ref": "#/$defs/profile" }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/capability" }
+    },
+    "protected_paths": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "egress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default", "deny", "allow_profiles"],
+      "properties": {
+        "default": { "const": "deny" },
+        "deny": {
+          "type": "array",
+          "uniqueItems": true,
+          "allOf": [
+            { "contains": { "const": "dns" } },
+            { "contains": { "const": "direct-ip" } },
+            { "contains": { "const": "redirect" } },
+            { "contains": { "const": "ipv6" } },
+            { "contains": { "const": "cloud-metadata" } },
+            { "contains": { "const": "private-network" } }
+          ],
+          "items": { "enum": ["dns", "direct-ip", "redirect", "ipv6", "cloud-metadata", "private-network", "proxy-bypass"] }
+        },
+        "allow_profiles": {
+          "type": "object",
+          "additionalProperties": { "type": "array", "items": { "type": "string", "format": "hostname" } }
+        }
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["delivery", "agent_github_credentials", "verification_github_credentials", "redact_logs", "redact_artifacts"],
+      "properties": {
+        "delivery": { "const": "short-lived-broker" },
+        "agent_github_credentials": { "const": false },
+        "verification_github_credentials": { "const": false },
+        "redact_logs": { "const": true },
+        "redact_artifacts": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "writable_roots", "read_only_roots", "cpu_limit", "memory_mb", "pid_limit", "network_profile"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "writable_roots": { "type": "array", "items": { "type": "string" } },
+        "read_only_roots": { "type": "array", "items": { "type": "string" } },
+        "cpu_limit": { "type": "number", "exclusiveMinimum": 0 },
+        "memory_mb": { "type": "integer", "minimum": 128 },
+        "pid_limit": { "type": "integer", "minimum": 1 },
+        "network_profile": { "enum": ["offline", "model-proxy-only", "verification-offline"] }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "owner", "profiles"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "owner": { "enum": ["controller", "adapter", "sandbox"] },
+        "profiles": { "type": "array", "minItems": 1, "items": { "enum": ["execution", "verification"] } }
+      }
+    }
+  }
+}

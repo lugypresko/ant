@@ -1,0 +1,8 @@
+{
+  "contract_version": "1.0.0",
+  "profiles": { "execution": { "id": "shared" }, "verification": { "id": "shared" } },
+  "capabilities": [{ "id": "shell.exec", "owner": "sandbox", "profiles": ["execution"] }],
+  "protected_paths": ["contracts/**"],
+  "egress": { "deny": ["dns", "direct-ip", "redirect", "ipv6", "cloud-metadata", "private-network"] },
+  "secrets": { "delivery": "short-lived-broker", "redact_logs": true, "redact_artifacts": true }
+}

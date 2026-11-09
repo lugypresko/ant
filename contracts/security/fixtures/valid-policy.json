@@ -1,0 +1,41 @@
+{
+  "contract_version": "1.0.0",
+  "profiles": {
+    "execution": {
+      "id": "execution-v1",
+      "writable_roots": ["/workspace"],
+      "read_only_roots": ["/runtime"],
+      "cpu_limit": 2,
+      "memory_mb": 2048,
+      "pid_limit": 128,
+      "network_profile": "model-proxy-only"
+    },
+    "verification": {
+      "id": "verification-v1",
+      "writable_roots": ["/results"],
+      "read_only_roots": ["/candidate", "/acceptance"],
+      "cpu_limit": 2,
+      "memory_mb": 2048,
+      "pid_limit": 128,
+      "network_profile": "verification-offline"
+    }
+  },
+  "capabilities": [
+    { "id": "shell.exec", "owner": "sandbox", "profiles": ["execution", "verification"] },
+    { "id": "workspace.write", "owner": "controller", "profiles": ["execution"] },
+    { "id": "trace.capture", "owner": "adapter", "profiles": ["execution"] }
+  ],
+  "protected_paths": [".github/workflows/**", "contracts/**", "benchmark/acceptance/**"],
+  "egress": {
+    "default": "deny",
+    "deny": ["dns", "direct-ip", "redirect", "ipv6", "cloud-metadata", "private-network", "proxy-bypass"],
+    "allow_profiles": { "model-proxy-only": ["model-proxy.invalid"], "verification-offline": [] }
+  },
+  "secrets": {
+    "delivery": "short-lived-broker",
+    "agent_github_credentials": false,
+    "verification_github_credentials": false,
+    "redact_logs": true,
+    "redact_artifacts": true
+  }
+}
