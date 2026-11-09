@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ant.local/contracts/product/product-contract-v1.schema.json",
+  "title": "ANT M0 Product Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "business_intent", "acceptance_criteria", "local_output", "remote_delivery"],
+  "properties": {
+    "contract_version": { "const": "1.0.0" },
+    "business_intent": { "$ref": "#/$defs/businessIntent" },
+    "acceptance_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/acceptanceCriterion" }
+    },
+    "local_output": { "$ref": "#/$defs/candidateCommit" },
+    "remote_delivery": { "$ref": "#/$defs/deliveryResult" }
+  },
+  "$defs": {
+    "businessIntent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "summary"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^INTENT-[0-9]+$" },
+        "summary": { "type": "string", "minLength": 1 },
+        "constraints": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] }
+      }
+    },
+    "acceptanceCriterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement", "check_ids"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REQ-[0-9]+$" },
+        "statement": { "type": "string", "minLength": 1 },
+        "check_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^AC-[0-9]+$" }
+        }
+      }
+    },
+    "candidateCommit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository_template_sha", "candidate_sha", "verified"],
+      "properties": {
+        "repository_template_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "candidate_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "verified": { "const": true }
+      }
+    },
+    "deliveryResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "visibility", "merge_allowed", "deploy_allowed"],
+      "properties": {
+        "mode": { "const": "draft_pull_request" },
+        "visibility": { "const": "private" },
+        "merge_allowed": { "const": false },
+        "deploy_allowed": { "const": false }
+      }
+    }
+  }
+}
